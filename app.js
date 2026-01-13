@@ -1,7 +1,7 @@
-import { firebaseConfig } from './firebase.js';
+import { firebaseConfig } from "./firebase.js";
 
 // Firebase (SDK modular - CDN)
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
   getAuth,
   onAuthStateChanged,
@@ -10,7 +10,7 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   signOut
-} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 import {
   getFirestore,
@@ -19,52 +19,58 @@ import {
   addDoc,
   setDoc,
   getDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
   query,
-  where,
   orderBy,
   serverTimestamp,
-  onSnapshot
-} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+  onSnapshot,
+  updateDoc
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 // ------------------ Helpers ------------------
 const $ = (id) => document.getElementById(id);
-const fmtDate = (d) => {
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yy = d.getFullYear();
-  return `${dd}/${mm}/${yy}`;
-};
-const parseDate = (s) => {
-  // dd/mm/yyyy
+
+const pad2 = (n) => String(n).padStart(2, "0");
+
+const fmtDateBR = (d) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+
+// dd/mm/yyyy -> Date
+const parseDateBR = (s) => {
   if (!s) return null;
-  const [dd, mm, yy] = s.split('/').map((v) => parseInt(v, 10));
+  const [dd, mm, yy] = s.split("/").map((v) => parseInt(v, 10));
   if (!dd || !mm || !yy) return null;
   const d = new Date(yy, mm - 1, dd);
   if (d.getFullYear() !== yy || d.getMonth() !== mm - 1 || d.getDate() !== dd) return null;
   return d;
 };
+
+// yyyy-mm-dd (input type=date) -> Date
+const parseDateISO = (s) => {
+  if (!s) return null;
+  const [yy, mm, dd] = s.split("-").map((v) => parseInt(v, 10));
+  if (!yy || !mm || !dd) return null;
+  return new Date(yy, mm - 1, dd);
+};
+
 const daysBetween = (a, b) => {
   const ms = 24 * 60 * 60 * 1000;
   const aa = new Date(a.getFullYear(), a.getMonth(), a.getDate());
   const bb = new Date(b.getFullYear(), b.getMonth(), b.getDate());
   return Math.round((bb - aa) / ms);
 };
+
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
-function showNotice(el, msg, type = 'info') {
+function showNotice(el, msg, type = "info") {
   if (!el) return;
   el.hidden = false;
-  el.classList.remove('notice--ok', 'notice--err', 'notice--info');
-  el.classList.add(type === 'ok' ? 'notice--ok' : type === 'err' ? 'notice--err' : 'notice--info');
+  el.classList.remove("notice--ok", "notice--err", "notice--info");
+  el.classList.add(type === "ok" ? "notice--ok" : type === "err" ? "notice--err" : "notice--info");
   el.textContent = msg;
 }
 function hideNotice(el) {
   if (!el) return;
   el.hidden = true;
-  el.textContent = '';
+  el.textContent = "";
 }
 
 // ------------------ Firebase init ------------------
@@ -73,59 +79,58 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // ------------------ DOM refs ------------------
-const btnHelp = $('btn-help');
-const dlgHelp = $('dlg-help');
-const btnCloseHelp = $('btn-close-help');
+const btnHelp = $("btn-help");
+const dlgHelp = $("dlg-help");
+const btnCloseHelp = $("btn-close-help");
 
-const btnLogout = $('btn-logout');
+const btnLogout = $("btn-logout");
 
-const viewAuth = $('view-auth');
-const viewApp = $('view-app');
+const viewAuth = $("view-auth");
+const viewApp = $("view-app");
 
-const formLogin = $('form-login');
-const loginEmail = $('login-email');
-const loginPass = $('login-pass');
+const formLogin = $("form-login");
+const loginEmail = $("login-email");
+const loginPass = $("login-pass");
 
-const formRegister = $('form-register');
-const regName = $('reg-name');
-const regEmail = $('reg-email');
-const regPass = $('reg-pass');
+const formRegister = $("form-register");
+const regName = $("reg-name");
+const regEmail = $("reg-email");
+const regPass = $("reg-pass");
 
-const btnReset = $('btn-reset');
-const authMsg = $('auth-msg');
+const btnReset = $("btn-reset");
+const authMsg = $("auth-msg");
 
-const userName = $('user-name');
+const userName = $("user-name");
+const todayEl = $("today");
 
-const todayInput = $('today');
+const kpiOverdue = $("kpi-overdue");
+const kpiWeek = $("kpi-week");
+const kpiAvg = $("kpi-avg");
 
-const kpiOverdue = $('kpi-overdue');
-const kpiDue7 = $('kpi-due7');
-const kpiTotal = $('kpi-total');
+const formSession = $("form-session");
+const studyDate = $("study-date");
+const studyTheme = $("study-theme");
+const qTotal = $("q-total");
+const qRight = $("q-right");
 
-const qTopic = $('q-topic');
-const qDone = $('q-done');
-const qRight = $('q-right');
+const sessionPreview = $("session-preview");
+const pAcc = $("p-acc");
+const pDays = $("p-days");
+const pNext = $("p-next");
+const sessionMsg = $("session-msg");
 
-const sessionPreview = $('session-preview');
-const pAcc = $('p-acc');
-const pDays = $('p-days');
-const pNext = $('p-next');
+const rulesList = $("rules-list");
+const btnAddRule = $("btn-add-rule");
+const btnSaveRules = $("btn-save-rules");
+const rulesMsg = $("rules-msg");
 
-const sessionMsg = $('session-msg');
-
-const rulesList = $('rules-list');
-const btnAddRule = $('btn-add-rule');
-const btnSaveRules = $('btn-save-rules');
-const rulesMsg = $('rules-msg');
-
-const filterStatus = $('filter-status');
-const filterText = $('filter-text');
-const tbodySessions = $('tbody-sessions');
+const filterStatus = $("filter-status");
+const filterText = $("filter-text");
+const tbodySessions = $("tbody-sessions");
 
 // ------------------ State ------------------
 let currentUser = null;
 
-// Default revisão rules (se a pessoa não configurar)
 const DEFAULT_RULES = [
   { min: 0, max: 49, days: 1 },
   { min: 50, max: 69, days: 3 },
@@ -137,50 +142,48 @@ const DEFAULT_RULES = [
 let unsubscribeSessions = null;
 let sessionsCache = [];
 
-// ------------------ UI: auth panel toggle (CORRIGIDO) ------------------
-// Agora usamos os botões com data-auth-tab="login/register" (igual no index.html)
-const authTabButtons = Array.from(document.querySelectorAll('[data-auth-tab]'));
+// ------------------ Tabs (Login/Criar conta) ------------------
+const authTabButtons = Array.from(document.querySelectorAll("[data-auth-tab]"));
 
 function setAuthTab(tab) {
-  const isLogin = tab === 'login';
+  const isLogin = tab === "login";
   formLogin.hidden = !isLogin;
   formRegister.hidden = isLogin;
 
   authTabButtons.forEach((btn) => {
-    const t = btn.getAttribute('data-auth-tab');
+    const t = btn.getAttribute("data-auth-tab");
     const active = t === tab;
-    btn.classList.toggle('is-active', active);
-    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
   });
 
   hideNotice(authMsg);
 }
 
 authTabButtons.forEach((btn) => {
-  btn.addEventListener('click', (e) => {
+  btn.addEventListener("click", (e) => {
     e.preventDefault();
-    const tab = btn.getAttribute('data-auth-tab');
-    setAuthTab(tab);
+    setAuthTab(btn.getAttribute("data-auth-tab"));
   });
 });
 
-// default
-setAuthTab('login');
+setAuthTab("login");
 
-btnHelp?.addEventListener('click', () => dlgHelp.showModal());
-btnCloseHelp?.addEventListener('click', () => dlgHelp.close());
+// ------------------ Modal help + logout ------------------
+btnHelp?.addEventListener("click", () => dlgHelp?.showModal());
+btnCloseHelp?.addEventListener("click", () => dlgHelp?.close());
 
-btnLogout?.addEventListener('click', async () => {
+btnLogout?.addEventListener("click", async () => {
   await signOut(auth);
 });
 
 // ------------------ Firestore paths ------------------
 const userRoot = () => `users/${currentUser.uid}`;
-const rulesDocRef = () => doc(db, userRoot(), 'profile', 'rules');
-const profileDocRef = () => doc(db, userRoot(), 'profile', 'info');
-const sessionsColRef = () => collection(db, userRoot(), 'sessions');
+const rulesDocRef = () => doc(db, userRoot(), "profile", "rules");
+const profileDocRef = () => doc(db, userRoot(), "profile", "info");
+const sessionsColRef = () => collection(db, userRoot(), "sessions");
 
-// ------------------ Rules logic ------------------
+// ------------------ Rules ------------------
 function pickDaysByAcc(acc, rules) {
   const a = clamp(Math.round(acc), 0, 100);
   const hit = rules.find((r) => a >= r.min && a <= r.max);
@@ -193,8 +196,8 @@ async function ensureUserProfileAndRules(user) {
 
   if (!profSnap.exists()) {
     await setDoc(profRef, {
-      name: user.displayName || '',
-      email: user.email || '',
+      name: user.displayName || "",
+      email: user.email || "",
       createdAt: serverTimestamp()
     });
   }
@@ -218,11 +221,11 @@ async function loadRules() {
 }
 
 function renderRules(rules) {
-  rulesList.innerHTML = '';
+  rulesList.innerHTML = "";
 
   rules.forEach((r, idx) => {
-    const row = document.createElement('div');
-    row.className = 'rule-row';
+    const row = document.createElement("div");
+    row.className = "rule-row";
     row.innerHTML = `
       <div class="field">
         <label>De (%)</label>
@@ -244,10 +247,9 @@ function renderRules(rules) {
     rulesList.appendChild(row);
   });
 
-  // delete buttons
-  rulesList.querySelectorAll('.btn-del-rule').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const i = parseInt(btn.getAttribute('data-idx'), 10);
+  rulesList.querySelectorAll(".btn-del-rule").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = parseInt(btn.getAttribute("data-idx"), 10);
       rules.splice(i, 1);
       renderRules(rules);
     });
@@ -255,24 +257,23 @@ function renderRules(rules) {
 }
 
 function readRulesFromUI() {
-  const rows = Array.from(rulesList.querySelectorAll('.rule-row'));
+  const rows = Array.from(rulesList.querySelectorAll(".rule-row"));
   const rules = rows.map((row) => {
-    const min = parseInt(row.querySelector('.rule-min')?.value || '0', 10);
-    const max = parseInt(row.querySelector('.rule-max')?.value || '0', 10);
-    const days = parseInt(row.querySelector('.rule-days')?.value || '0', 10);
+    const min = parseInt(row.querySelector(".rule-min")?.value || "0", 10);
+    const max = parseInt(row.querySelector(".rule-max")?.value || "0", 10);
+    const days = parseInt(row.querySelector(".rule-days")?.value || "0", 10);
     return { min, max, days };
   });
 
-  // normalize / validate
   for (const r of rules) {
     if (Number.isNaN(r.min) || Number.isNaN(r.max) || Number.isNaN(r.days)) {
-      throw new Error('Regras inválidas: preencha números.');
+      throw new Error("Regras inválidas: preencha números.");
     }
     if (r.min < 0 || r.max > 100 || r.min > r.max) {
       throw new Error('Regras inválidas: verifique "De" e "Até".');
     }
     if (r.days < 0) {
-      throw new Error('Regras inválidas: dias não pode ser negativo.');
+      throw new Error("Regras inválidas: dias não pode ser negativo.");
     }
   }
   return rules;
@@ -281,239 +282,245 @@ function readRulesFromUI() {
 async function saveRules() {
   const rules = readRulesFromUI();
   await setDoc(rulesDocRef(), { rules, updatedAt: serverTimestamp() }, { merge: true });
-  showNotice(rulesMsg, 'Regras salvas com sucesso ✅', 'ok');
+  showNotice(rulesMsg, "Regras salvas com sucesso ✅", "ok");
 }
 
-// ------------------ Sessions logic ------------------
-function computeDerivedSessionFields(session, rules) {
-  const done = Number(session.done || 0);
-  const right = Number(session.right || 0);
+// ------------------ Sessions ------------------
+function computeDerived(topic, done, right, studiedAt, rules) {
   const acc = done > 0 ? Math.round((right / done) * 100) : 0;
-
   const days = pickDaysByAcc(acc, rules);
-
-  const studiedAt = session.studiedAt instanceof Date ? session.studiedAt : parseDate(session.studiedAtStr);
-  const nextReviewAt = studiedAt ? new Date(studiedAt.getTime() + days * 24 * 60 * 60 * 1000) : null;
-
-  return {
-    acc,
-    days,
-    nextReviewAt,
-    nextReviewAtStr: nextReviewAt ? fmtDate(nextReviewAt) : '—'
-  };
+  const nextReviewAt = new Date(studiedAt.getTime() + days * 24 * 60 * 60 * 1000);
+  return { acc, days, nextReviewAt };
 }
 
-function getStatus(nextReviewAt, now) {
-  if (!nextReviewAt) return '—';
-  const diff = daysBetween(now, nextReviewAt);
-  if (diff < 0) return 'overdue';
-  if (diff <= 7) return 'due7';
-  return 'ok';
+function computeStatus(session, now) {
+  if (session.reviewed) return "done";
+  if (!session.nextReviewAt) return "open";
+  const diff = daysBetween(now, session.nextReviewAt);
+  if (diff < 0) return "overdue";
+  if (diff <= 7) return "next7";
+  return "open";
 }
 
-function statusLabel(status, nextReviewAt, now) {
-  if (!nextReviewAt) return '—';
-  const diff = daysBetween(now, nextReviewAt);
-  if (diff < 0) return `Vencido há ${Math.abs(diff)} dia(s)`;
-  if (diff === 0) return 'Revisar hoje';
+function statusText(status, session, now) {
+  if (status === "done") return "Revisada ✅";
+  if (!session.nextReviewAt) return "—";
+  const diff = daysBetween(now, session.nextReviewAt);
+  if (diff < 0) return `Vencida há ${Math.abs(diff)} dia(s)`;
+  if (diff === 0) return "Revisar hoje";
   return `Em ${diff} dia(s)`;
 }
 
 function applyFilters(list) {
-  const status = filterStatus?.value || 'all';
-  const text = (filterText?.value || '').trim().toLowerCase();
+  const st = filterStatus?.value || "all";
+  const text = (filterText?.value || "").trim().toLowerCase();
 
   return list.filter((s) => {
     let ok = true;
-    if (status !== 'all') ok = ok && s.status === status;
+
+    if (st !== "all") ok = ok && s.status === st;
+
     if (text) {
-      ok =
-        ok &&
-        (String(s.topic || '').toLowerCase().includes(text) ||
-          String(s.tags || '').toLowerCase().includes(text));
+      ok = ok && (String(s.topic || "").toLowerCase().includes(text));
     }
+
     return ok;
   });
 }
 
 function renderKPIs(list) {
-  const overdue = list.filter((s) => s.status === 'overdue').length;
-  const due7 = list.filter((s) => s.status === 'due7').length;
+  const overdue = list.filter((s) => s.status === "overdue").length;
+  const next7 = list.filter((s) => s.status === "next7").length;
 
-  if (kpiOverdue) kpiOverdue.textContent = overdue;
-  if (kpiDue7) kpiDue7.textContent = due7;
-  if (kpiTotal) kpiTotal.textContent = list.length;
+  const avg =
+    list.length > 0
+      ? Math.round(list.reduce((acc, s) => acc + (Number(s.acc) || 0), 0) / list.length)
+      : null;
+
+  if (kpiOverdue) kpiOverdue.textContent = String(overdue);
+  if (kpiWeek) kpiWeek.textContent = String(next7);
+  if (kpiAvg) kpiAvg.textContent = avg === null ? "—" : `${avg}%`;
 }
 
-function renderSessionsTable(list) {
-  if (!tbodySessions) return;
-  tbodySessions.innerHTML = '';
+async function toggleReviewed(id, reviewed) {
+  const ref = doc(db, userRoot(), "sessions", id);
+  await updateDoc(ref, {
+    reviewed: !reviewed,
+    reviewedAtStr: !reviewed ? fmtDateBR(new Date()) : ""
+  });
+}
+
+function renderTable(list) {
+  tbodySessions.innerHTML = "";
 
   if (!list.length) {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td colspan="7" class="muted">Nenhum registro ainda.</td>`;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="6" class="muted">Nenhum registro ainda.</td>`;
     tbodySessions.appendChild(tr);
     return;
   }
 
   list.forEach((s) => {
-    const tr = document.createElement('tr');
+    const tr = document.createElement("tr");
 
     const badgeClass =
-      s.status === 'overdue' ? 'badge badge--danger' : s.status === 'due7' ? 'badge badge--warn' : 'badge badge--ok';
+      s.status === "overdue"
+        ? "badge badge--danger"
+        : s.status === "next7"
+        ? "badge badge--warn"
+        : s.status === "done"
+        ? "badge badge--ok"
+        : "badge badge--soft";
+
+    const btnLabel = s.reviewed ? "Desfazer" : "Marcar revisado";
 
     tr.innerHTML = `
-      <td>${s.studiedAtStr || '—'}</td>
-      <td><b>${s.topic || '—'}</b></td>
-      <td>${s.done ?? 0}</td>
-      <td>${s.right ?? 0}</td>
-      <td>${s.acc ?? 0}%</td>
-      <td>${s.nextReviewAtStr || '—'}</td>
-      <td><span class="${badgeClass}">${s.statusText || '—'}</span></td>
+      <td><b>${s.topic || "—"}</b></td>
+      <td>${s.studiedAtStr || "—"}</td>
+      <td>${typeof s.acc === "number" ? `${s.acc}%` : "—"}</td>
+      <td>${s.nextReviewAtStr || "—"}</td>
+      <td><span class="${badgeClass}">${s.statusText || "—"}</span></td>
+      <td><button class="btn btn--soft btn-review" type="button">${btnLabel}</button></td>
     `;
+
+    tr.querySelector(".btn-review").addEventListener("click", () => toggleReviewed(s.id, s.reviewed));
     tbodySessions.appendChild(tr);
   });
 }
 
-function refreshUIFromCache() {
-  const now = parseDate(todayInput?.value) || new Date();
+function refreshUI() {
+  const now = new Date();
 
-  // derive status text per row
   const list = sessionsCache.map((s) => {
-    const status = getStatus(s.nextReviewAt, now);
+    const status = computeStatus(s, now);
     return {
       ...s,
       status,
-      statusText: statusLabel(status, s.nextReviewAt, now)
+      statusText: statusText(status, s, now)
     };
   });
 
-  const filtered = applyFilters(list);
   renderKPIs(list);
-  renderSessionsTable(filtered);
+  renderTable(applyFilters(list));
 }
 
-async function createSession() {
+// ------------------ Form session ------------------
+function updatePreview() {
   hideNotice(sessionMsg);
 
-  const topic = (qTopic?.value || '').trim();
-  const done = parseInt(qDone?.value || '0', 10);
-  const right = parseInt(qRight?.value || '0', 10);
-  const studiedAt = parseDate(todayInput?.value) || new Date();
+  const d = parseDateISO(studyDate?.value);
+  const topic = (studyTheme?.value || "").trim();
+  const done = parseInt(qTotal?.value || "0", 10);
+  const right = parseInt(qRight?.value || "0", 10);
 
-  if (!topic) {
-    showNotice(sessionMsg, 'Informe o tema estudado.', 'err');
-    return;
-  }
-  if (Number.isNaN(done) || done <= 0) {
-    showNotice(sessionMsg, 'Informe quantas questões você fez (maior que 0).', 'err');
-    return;
-  }
-  if (Number.isNaN(right) || right < 0 || right > done) {
-    showNotice(sessionMsg, 'A quantidade de acertos deve estar entre 0 e o total de questões.', 'err');
+  if (!d || !topic || !done || Number.isNaN(done) || Number.isNaN(right)) {
+    sessionPreview.hidden = true;
     return;
   }
 
-  const rules = await loadRules();
-  const derived = computeDerivedSessionFields(
-    {
-      topic,
-      done,
-      right,
-      studiedAt,
-      studiedAtStr: fmtDate(studiedAt)
-    },
-    rules
-  );
+  if (right < 0 || right > done) {
+    sessionPreview.hidden = true;
+    return;
+  }
 
-  // preview
-  if (pAcc) pAcc.textContent = `${derived.acc}%`;
-  if (pDays) pDays.textContent = `${derived.days} dia(s)`;
-  if (pNext) pNext.textContent = derived.nextReviewAtStr;
+  // só para preview: usa regras carregadas depois; aqui usa DEFAULT_RULES para não travar
+  const { acc, days, nextReviewAt } = computeDerived(topic, done, right, d, DEFAULT_RULES);
 
-  await addDoc(sessionsColRef(), {
-    topic,
-    done,
-    right,
-    studiedAtStr: fmtDate(studiedAt),
-    nextReviewAtStr: derived.nextReviewAtStr,
-    acc: derived.acc,
-    days: derived.days,
-    createdAt: serverTimestamp()
-  });
-
-  showNotice(sessionMsg, 'Sessão salva ✅', 'ok');
-
-  // reset inputs (keep date)
-  if (qTopic) qTopic.value = '';
-  if (qDone) qDone.value = '';
-  if (qRight) qRight.value = '';
+  sessionPreview.hidden = false;
+  pAcc.textContent = `${acc}%`;
+  pDays.textContent = `${days} dia(s)`;
+  pNext.textContent = fmtDateBR(nextReviewAt);
 }
 
-// ------------------ Live sessions subscribe ------------------
-async function subscribeSessions() {
-  if (unsubscribeSessions) unsubscribeSessions();
+studyDate?.addEventListener("change", updatePreview);
+studyTheme?.addEventListener("input", updatePreview);
+qTotal?.addEventListener("input", updatePreview);
+qRight?.addEventListener("input", updatePreview);
 
-  const rules = await loadRules();
-  const col = sessionsColRef();
-  const qy = query(col, orderBy('createdAt', 'desc'));
+formSession?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  hideNotice(sessionMsg);
 
-  unsubscribeSessions = onSnapshot(qy, (snap) => {
-    const now = parseDate(todayInput?.value) || new Date();
+  const d = parseDateISO(studyDate?.value);
+  const topic = (studyTheme?.value || "").trim();
+  const done = parseInt(qTotal?.value || "0", 10);
+  const right = parseInt(qRight?.value || "0", 10);
 
-    sessionsCache = snap.docs.map((d) => {
-      const data = d.data();
-      // build derived using stored fields (fallback)
-      const studiedAt = parseDate(data.studiedAtStr) || new Date();
-      const nextReviewAt = parseDate(data.nextReviewAtStr) || null;
+  if (!d) return showNotice(sessionMsg, "Informe a data do estudo.", "err");
+  if (!topic) return showNotice(sessionMsg, "Informe o tema.", "err");
+  if (Number.isNaN(done) || done <= 0) return showNotice(sessionMsg, "Questões feitas deve ser > 0.", "err");
+  if (Number.isNaN(right) || right < 0 || right > done)
+    return showNotice(sessionMsg, "Acertos deve estar entre 0 e o total.", "err");
 
-      const acc = typeof data.acc === 'number' ? data.acc : 0;
-      const days = typeof data.days === 'number' ? data.days : pickDaysByAcc(acc, rules);
+  try {
+    const rules = await loadRules();
+    const { acc, days, nextReviewAt } = computeDerived(topic, done, right, d, rules);
 
-      const status = getStatus(nextReviewAt, now);
-
-      return {
-        id: d.id,
-        topic: data.topic,
-        done: data.done,
-        right: data.right,
-        studiedAt,
-        studiedAtStr: data.studiedAtStr,
-        nextReviewAt,
-        nextReviewAtStr: data.nextReviewAtStr,
-        acc,
-        days,
-        status,
-        statusText: statusLabel(status, nextReviewAt, now)
-      };
+    await addDoc(sessionsColRef(), {
+      topic,
+      studiedAtStr: fmtDateBR(d),
+      nextReviewAtStr: fmtDateBR(nextReviewAt),
+      acc,
+      days,
+      reviewed: false,
+      reviewedAtStr: "",
+      createdAt: serverTimestamp()
     });
 
-    refreshUIFromCache();
-  });
-}
+    showNotice(sessionMsg, "Estudo salvo ✅", "ok");
+
+    // limpa campos (mantém a data)
+    studyTheme.value = "";
+    qTotal.value = "";
+    qRight.value = "";
+    sessionPreview.hidden = true;
+  } catch (err) {
+    showNotice(sessionMsg, `Erro ao salvar: ${err.message}`, "err");
+  }
+});
+
+// ------------------ Rules buttons ------------------
+btnAddRule?.addEventListener("click", () => {
+  hideNotice(rulesMsg);
+  const rules = readRulesFromUI();
+  rules.push({ min: 0, max: 0, days: 0 });
+  renderRules(rules);
+});
+
+btnSaveRules?.addEventListener("click", async () => {
+  hideNotice(rulesMsg);
+  try {
+    await saveRules();
+  } catch (err) {
+    showNotice(rulesMsg, err.message || String(err), "err");
+  }
+});
+
+filterStatus?.addEventListener("change", refreshUI);
+filterText?.addEventListener("input", refreshUI);
 
 // ------------------ Auth actions ------------------
-formLogin?.addEventListener('submit', async (e) => {
+formLogin?.addEventListener("submit", async (e) => {
   e.preventDefault();
   hideNotice(authMsg);
 
-  const email = (loginEmail?.value || '').trim();
-  const pass = loginPass?.value || '';
+  const email = (loginEmail?.value || "").trim();
+  const pass = loginPass?.value || "";
 
   try {
     await signInWithEmailAndPassword(auth, email, pass);
   } catch (err) {
-    showNotice(authMsg, `Erro ao entrar: ${err.message}`, 'err');
+    showNotice(authMsg, `Erro ao entrar: ${err.message}`, "err");
   }
 });
 
-formRegister?.addEventListener('submit', async (e) => {
+formRegister?.addEventListener("submit", async (e) => {
   e.preventDefault();
   hideNotice(authMsg);
 
-  const name = (regName?.value || '').trim();
-  const email = (regEmail?.value || '').trim();
-  const pass = regPass?.value || '';
+  const name = (regName?.value || "").trim();
+  const email = (regEmail?.value || "").trim();
+  const pass = regPass?.value || "";
 
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
@@ -521,103 +528,94 @@ formRegister?.addEventListener('submit', async (e) => {
 
     await ensureUserProfileAndRules(cred.user);
 
-    showNotice(authMsg, 'Conta criada com sucesso ✅ Você já pode usar o planner!', 'ok');
-    // switch to login tab
-    setAuthTab('login');
-    if (loginEmail) loginEmail.value = email;
-    if (loginPass) loginPass.value = '';
+    showNotice(authMsg, "Conta criada com sucesso ✅", "ok");
+    setAuthTab("login");
+    loginEmail.value = email;
+    loginPass.value = "";
   } catch (err) {
-    showNotice(authMsg, `Erro ao criar conta: ${err.message}`, 'err');
+    showNotice(authMsg, `Erro ao criar conta: ${err.message}`, "err");
   }
 });
 
-btnReset?.addEventListener('click', async () => {
+btnReset?.addEventListener("click", async () => {
   hideNotice(authMsg);
-  const email = (loginEmail?.value || '').trim();
-  if (!email) {
-    showNotice(authMsg, 'Digite seu email no campo de login para receber o link de reset.', 'err');
-    return;
-  }
+  const email = (loginEmail?.value || "").trim();
+  if (!email) return showNotice(authMsg, "Digite seu email no login para receber o reset.", "err");
+
   try {
     await sendPasswordResetEmail(auth, email);
-    showNotice(authMsg, 'Link de redefinição enviado para o seu email ✅', 'ok');
+    showNotice(authMsg, "Link de redefinição enviado ✅", "ok");
   } catch (err) {
-    showNotice(authMsg, `Erro ao enviar reset: ${err.message}`, 'err');
+    showNotice(authMsg, `Erro ao enviar reset: ${err.message}`, "err");
   }
 });
 
-// ------------------ App actions (after login) ------------------
-btnAddRule?.addEventListener('click', async () => {
-  hideNotice(rulesMsg);
-  const rules = readRulesFromUI();
-  rules.push({ min: 0, max: 0, days: 0 });
-  renderRules(rules);
-});
+// ------------------ Subscribe sessions ------------------
+async function subscribeSessions() {
+  if (unsubscribeSessions) unsubscribeSessions();
 
-btnSaveRules?.addEventListener('click', async () => {
-  hideNotice(rulesMsg);
-  try {
-    await saveRules();
-  } catch (err) {
-    showNotice(rulesMsg, err.message || String(err), 'err');
-  }
-});
+  const qy = query(sessionsColRef(), orderBy("createdAt", "desc"));
 
-sessionPreview?.addEventListener('click', async () => {
-  // botão "Salvar sessão" (se existir no HTML, dependendo do layout)
-  // NOTE: se não existir, este listener não causa erro (porque usamos ?.)
-  await createSession();
-});
+  unsubscribeSessions = onSnapshot(qy, (snap) => {
+    sessionsCache = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        topic: data.topic,
+        studiedAtStr: data.studiedAtStr,
+        nextReviewAtStr: data.nextReviewAtStr,
+        nextReviewAt: parseDateBR(data.nextReviewAtStr),
+        acc: typeof data.acc === "number" ? data.acc : 0,
+        reviewed: !!data.reviewed
+      };
+    });
 
-todayInput?.addEventListener('change', () => {
-  refreshUIFromCache();
-});
-
-filterStatus?.addEventListener('change', () => {
-  refreshUIFromCache();
-});
-filterText?.addEventListener('input', () => {
-  refreshUIFromCache();
-});
+    refreshUI();
+  });
+}
 
 // ------------------ Auth state ------------------
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;
 
   if (!user) {
-    // show auth
     viewApp.hidden = true;
     viewAuth.hidden = false;
+    btnLogout.hidden = true;
 
-    // reset some ui
-    if (userName) userName.textContent = '—';
-    if (todayInput) todayInput.value = fmtDate(new Date());
-    hideNotice(authMsg);
+    userName.textContent = "—";
+    todayEl.textContent = fmtDateBR(new Date());
 
     if (unsubscribeSessions) unsubscribeSessions();
     sessionsCache = [];
-    refreshUIFromCache();
+    refreshUI();
     return;
   }
 
-  // user logged
   viewAuth.hidden = true;
   viewApp.hidden = false;
+  btnLogout.hidden = false;
 
   await ensureUserProfileAndRules(user);
 
-  // greet
+  // nome
   const profSnap = await getDoc(profileDocRef());
   const prof = profSnap.exists() ? profSnap.data() : {};
-  if (userName) userName.textContent = prof.name || user.displayName || user.email || '—';
+  userName.textContent = prof.name || user.displayName || user.email || "—";
 
-  // load rules and render
+  // hoje
+  todayEl.textContent = fmtDateBR(new Date());
+
+  // default no input de data do estudo
+  if (studyDate && !studyDate.value) {
+    const d = new Date();
+    studyDate.value = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  }
+
+  // regras
   const rules = await loadRules();
   renderRules(rules);
 
-  // default date
-  if (todayInput && !todayInput.value) todayInput.value = fmtDate(new Date());
-
-  // subscribe sessions
+  // sessões
   await subscribeSessions();
 });

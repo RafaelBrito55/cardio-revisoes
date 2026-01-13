@@ -1,4 +1,6 @@
+// firebase.js
 // Firebase config (projeto: cardio-revisoes)
+
 export const firebaseConfig = {
   apiKey: "AIzaSyAHJw3-buWTC0y2KJmKsw9tzEipIlNrg-4",
   authDomain: "cardio-revisoes.firebaseapp.com",

@@ -3,16 +3,6 @@ import { firebaseConfig } from "./firebase.js";
 // Firebase (SDK modular - CDN)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
-  getAuth,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-  updateProfile,
-  signOut
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-
-import {
   getFirestore,
   doc,
   collection,
@@ -28,36 +18,28 @@ import {
 
 // ------------------ Helpers ------------------
 const $ = (id) => document.getElementById(id);
-
 const pad2 = (n) => String(n).padStart(2, "0");
-
 const fmtDateBR = (d) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
 
-// dd/mm/yyyy -> Date
 const parseDateBR = (s) => {
   if (!s) return null;
   const [dd, mm, yy] = s.split("/").map((v) => parseInt(v, 10));
   if (!dd || !mm || !yy) return null;
   const d = new Date(yy, mm - 1, dd);
-  if (d.getFullYear() !== yy || d.getMonth() !== mm - 1 || d.getDate() !== dd) return null;
   return d;
 };
-
-// yyyy-mm-dd (input type=date) -> Date
 const parseDateISO = (s) => {
   if (!s) return null;
   const [yy, mm, dd] = s.split("-").map((v) => parseInt(v, 10));
   if (!yy || !mm || !dd) return null;
   return new Date(yy, mm - 1, dd);
 };
-
 const daysBetween = (a, b) => {
   const ms = 24 * 60 * 60 * 1000;
   const aa = new Date(a.getFullYear(), a.getMonth(), a.getDate());
   const bb = new Date(b.getFullYear(), b.getMonth(), b.getDate());
   return Math.round((bb - aa) / ms);
 };
-
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
 function showNotice(el, msg, type = "info") {
@@ -75,7 +57,6 @@ function hideNotice(el) {
 
 // ------------------ Firebase init ------------------
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
 
 // ------------------ DOM refs ------------------
@@ -83,22 +64,11 @@ const btnHelp = $("btn-help");
 const dlgHelp = $("dlg-help");
 const btnCloseHelp = $("btn-close-help");
 
-const btnLogout = $("btn-logout");
+const viewEnter = $("view-enter");
+const btnEnter = $("btn-enter");
+const enterMsg = $("enter-msg");
 
-const viewAuth = $("view-auth");
 const viewApp = $("view-app");
-
-const formLogin = $("form-login");
-const loginEmail = $("login-email");
-const loginPass = $("login-pass");
-
-const formRegister = $("form-register");
-const regName = $("reg-name");
-const regEmail = $("reg-email");
-const regPass = $("reg-pass");
-
-const btnReset = $("btn-reset");
-const authMsg = $("auth-msg");
 
 const userName = $("user-name");
 const todayEl = $("today");
@@ -128,9 +98,12 @@ const filterStatus = $("filter-status");
 const filterText = $("filter-text");
 const tbodySessions = $("tbody-sessions");
 
-// ------------------ State ------------------
-let currentUser = null;
+// ------------------ Firestore paths (PUBLIC) ------------------
+const ROOT_DOC = doc(db, "public", "cardio-revisoes");
+const RULES_DOC = doc(db, "public", "cardio-revisoes", "profile", "rules");
+const SESSIONS_COL = collection(db, "public", "cardio-revisoes", "sessions");
 
+// ------------------ State ------------------
 const DEFAULT_RULES = [
   { min: 0, max: 49, days: 1 },
   { min: 50, max: 69, days: 3 },
@@ -142,47 +115,6 @@ const DEFAULT_RULES = [
 let unsubscribeSessions = null;
 let sessionsCache = [];
 
-// ------------------ Tabs (Login/Criar conta) ------------------
-const authTabButtons = Array.from(document.querySelectorAll("[data-auth-tab]"));
-
-function setAuthTab(tab) {
-  const isLogin = tab === "login";
-  formLogin.hidden = !isLogin;
-  formRegister.hidden = isLogin;
-
-  authTabButtons.forEach((btn) => {
-    const t = btn.getAttribute("data-auth-tab");
-    const active = t === tab;
-    btn.classList.toggle("is-active", active);
-    btn.setAttribute("aria-selected", active ? "true" : "false");
-  });
-
-  hideNotice(authMsg);
-}
-
-authTabButtons.forEach((btn) => {
-  btn.addEventListener("click", (e) => {
-    e.preventDefault();
-    setAuthTab(btn.getAttribute("data-auth-tab"));
-  });
-});
-
-setAuthTab("login");
-
-// ------------------ Modal help + logout ------------------
-btnHelp?.addEventListener("click", () => dlgHelp?.showModal());
-btnCloseHelp?.addEventListener("click", () => dlgHelp?.close());
-
-btnLogout?.addEventListener("click", async () => {
-  await signOut(auth);
-});
-
-// ------------------ Firestore paths ------------------
-const userRoot = () => `users/${currentUser.uid}`;
-const rulesDocRef = () => doc(db, userRoot(), "profile", "rules");
-const profileDocRef = () => doc(db, userRoot(), "profile", "info");
-const sessionsColRef = () => collection(db, userRoot(), "sessions");
-
 // ------------------ Rules ------------------
 function pickDaysByAcc(acc, rules) {
   const a = clamp(Math.round(acc), 0, 100);
@@ -190,31 +122,20 @@ function pickDaysByAcc(acc, rules) {
   return hit ? hit.days : 7;
 }
 
-async function ensureUserProfileAndRules(user) {
-  const profRef = profileDocRef();
-  const profSnap = await getDoc(profRef);
-
-  if (!profSnap.exists()) {
-    await setDoc(profRef, {
-      name: user.displayName || "",
-      email: user.email || "",
-      createdAt: serverTimestamp()
-    });
+async function ensureBootstrap() {
+  const rootSnap = await getDoc(ROOT_DOC);
+  if (!rootSnap.exists()) {
+    await setDoc(ROOT_DOC, { createdAt: serverTimestamp(), ownerName: "Ana" }, { merge: true });
   }
 
-  const rRef = rulesDocRef();
-  const rSnap = await getDoc(rRef);
-
-  if (!rSnap.exists()) {
-    await setDoc(rRef, {
-      rules: DEFAULT_RULES,
-      updatedAt: serverTimestamp()
-    });
+  const rulesSnap = await getDoc(RULES_DOC);
+  if (!rulesSnap.exists()) {
+    await setDoc(RULES_DOC, { rules: DEFAULT_RULES, updatedAt: serverTimestamp() }, { merge: true });
   }
 }
 
 async function loadRules() {
-  const snap = await getDoc(rulesDocRef());
+  const snap = await getDoc(RULES_DOC);
   if (!snap.exists()) return DEFAULT_RULES;
   const data = snap.data();
   return Array.isArray(data.rules) && data.rules.length ? data.rules : DEFAULT_RULES;
@@ -281,12 +202,12 @@ function readRulesFromUI() {
 
 async function saveRules() {
   const rules = readRulesFromUI();
-  await setDoc(rulesDocRef(), { rules, updatedAt: serverTimestamp() }, { merge: true });
-  showNotice(rulesMsg, "Regras salvas com sucesso ✅", "ok");
+  await setDoc(RULES_DOC, { rules, updatedAt: serverTimestamp() }, { merge: true });
+  showNotice(rulesMsg, "Regras salvas ✅", "ok");
 }
 
-// ------------------ Sessions ------------------
-function computeDerived(topic, done, right, studiedAt, rules) {
+// ------------------ Sessions + UI ------------------
+function computeDerived(done, right, studiedAt, rules) {
   const acc = done > 0 ? Math.round((right / done) * 100) : 0;
   const days = pickDaysByAcc(acc, rules);
   const nextReviewAt = new Date(studiedAt.getTime() + days * 24 * 60 * 60 * 1000);
@@ -295,7 +216,6 @@ function computeDerived(topic, done, right, studiedAt, rules) {
 
 function computeStatus(session, now) {
   if (session.reviewed) return "done";
-  if (!session.nextReviewAt) return "open";
   const diff = daysBetween(now, session.nextReviewAt);
   if (diff < 0) return "overdue";
   if (diff <= 7) return "next7";
@@ -304,7 +224,6 @@ function computeStatus(session, now) {
 
 function statusText(status, session, now) {
   if (status === "done") return "Revisada ✅";
-  if (!session.nextReviewAt) return "—";
   const diff = daysBetween(now, session.nextReviewAt);
   if (diff < 0) return `Vencida há ${Math.abs(diff)} dia(s)`;
   if (diff === 0) return "Revisar hoje";
@@ -317,13 +236,8 @@ function applyFilters(list) {
 
   return list.filter((s) => {
     let ok = true;
-
     if (st !== "all") ok = ok && s.status === st;
-
-    if (text) {
-      ok = ok && (String(s.topic || "").toLowerCase().includes(text));
-    }
-
+    if (text) ok = ok && String(s.topic || "").toLowerCase().includes(text);
     return ok;
   });
 }
@@ -331,19 +245,18 @@ function applyFilters(list) {
 function renderKPIs(list) {
   const overdue = list.filter((s) => s.status === "overdue").length;
   const next7 = list.filter((s) => s.status === "next7").length;
-
   const avg =
     list.length > 0
       ? Math.round(list.reduce((acc, s) => acc + (Number(s.acc) || 0), 0) / list.length)
       : null;
 
-  if (kpiOverdue) kpiOverdue.textContent = String(overdue);
-  if (kpiWeek) kpiWeek.textContent = String(next7);
-  if (kpiAvg) kpiAvg.textContent = avg === null ? "—" : `${avg}%`;
+  kpiOverdue.textContent = String(overdue);
+  kpiWeek.textContent = String(next7);
+  kpiAvg.textContent = avg === null ? "—" : `${avg}%`;
 }
 
 async function toggleReviewed(id, reviewed) {
-  const ref = doc(db, userRoot(), "sessions", id);
+  const ref = doc(db, "public", "cardio-revisoes", "sessions", id);
   await updateDoc(ref, {
     reviewed: !reviewed,
     reviewedAtStr: !reviewed ? fmtDateBR(new Date()) : ""
@@ -382,7 +295,6 @@ function renderTable(list) {
       <td><span class="${badgeClass}">${s.statusText || "—"}</span></td>
       <td><button class="btn btn--soft btn-review" type="button">${btnLabel}</button></td>
     `;
-
     tr.querySelector(".btn-review").addEventListener("click", () => toggleReviewed(s.id, s.reviewed));
     tbodySessions.appendChild(tr);
   });
@@ -393,39 +305,25 @@ function refreshUI() {
 
   const list = sessionsCache.map((s) => {
     const status = computeStatus(s, now);
-    return {
-      ...s,
-      status,
-      statusText: statusText(status, s, now)
-    };
+    return { ...s, status, statusText: statusText(status, s, now) };
   });
 
   renderKPIs(list);
   renderTable(applyFilters(list));
 }
 
-// ------------------ Form session ------------------
 function updatePreview() {
-  hideNotice(sessionMsg);
-
   const d = parseDateISO(studyDate?.value);
   const topic = (studyTheme?.value || "").trim();
   const done = parseInt(qTotal?.value || "0", 10);
   const right = parseInt(qRight?.value || "0", 10);
 
-  if (!d || !topic || !done || Number.isNaN(done) || Number.isNaN(right)) {
+  if (!d || !topic || !done || Number.isNaN(done) || Number.isNaN(right) || right > done) {
     sessionPreview.hidden = true;
     return;
   }
 
-  if (right < 0 || right > done) {
-    sessionPreview.hidden = true;
-    return;
-  }
-
-  // só para preview: usa regras carregadas depois; aqui usa DEFAULT_RULES para não travar
-  const { acc, days, nextReviewAt } = computeDerived(topic, done, right, d, DEFAULT_RULES);
-
+  const { acc, days, nextReviewAt } = computeDerived(done, right, d, DEFAULT_RULES);
   sessionPreview.hidden = false;
   pAcc.textContent = `${acc}%`;
   pDays.textContent = `${days} dia(s)`;
@@ -446,17 +344,16 @@ formSession?.addEventListener("submit", async (e) => {
   const done = parseInt(qTotal?.value || "0", 10);
   const right = parseInt(qRight?.value || "0", 10);
 
-  if (!d) return showNotice(sessionMsg, "Informe a data do estudo.", "err");
+  if (!d) return showNotice(sessionMsg, "Informe a data.", "err");
   if (!topic) return showNotice(sessionMsg, "Informe o tema.", "err");
   if (Number.isNaN(done) || done <= 0) return showNotice(sessionMsg, "Questões feitas deve ser > 0.", "err");
-  if (Number.isNaN(right) || right < 0 || right > done)
-    return showNotice(sessionMsg, "Acertos deve estar entre 0 e o total.", "err");
+  if (Number.isNaN(right) || right < 0 || right > done) return showNotice(sessionMsg, "Acertos inválidos.", "err");
 
   try {
     const rules = await loadRules();
-    const { acc, days, nextReviewAt } = computeDerived(topic, done, right, d, rules);
+    const { acc, days, nextReviewAt } = computeDerived(done, right, d, rules);
 
-    await addDoc(sessionsColRef(), {
+    await addDoc(SESSIONS_COL, {
       topic,
       studiedAtStr: fmtDateBR(d),
       nextReviewAtStr: fmtDateBR(nextReviewAt),
@@ -468,8 +365,6 @@ formSession?.addEventListener("submit", async (e) => {
     });
 
     showNotice(sessionMsg, "Estudo salvo ✅", "ok");
-
-    // limpa campos (mantém a data)
     studyTheme.value = "";
     qTotal.value = "";
     qRight.value = "";
@@ -479,7 +374,6 @@ formSession?.addEventListener("submit", async (e) => {
   }
 });
 
-// ------------------ Rules buttons ------------------
 btnAddRule?.addEventListener("click", () => {
   hideNotice(rulesMsg);
   const rules = readRulesFromUI();
@@ -499,123 +393,52 @@ btnSaveRules?.addEventListener("click", async () => {
 filterStatus?.addEventListener("change", refreshUI);
 filterText?.addEventListener("input", refreshUI);
 
-// ------------------ Auth actions ------------------
-formLogin?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  hideNotice(authMsg);
-
-  const email = (loginEmail?.value || "").trim();
-  const pass = loginPass?.value || "";
-
+// ------------------ Enter (no auth) ------------------
+async function startApp() {
   try {
-    await signInWithEmailAndPassword(auth, email, pass);
-  } catch (err) {
-    showNotice(authMsg, `Erro ao entrar: ${err.message}`, "err");
-  }
-});
+    await ensureBootstrap();
 
-formRegister?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  hideNotice(authMsg);
-
-  const name = (regName?.value || "").trim();
-  const email = (regEmail?.value || "").trim();
-  const pass = regPass?.value || "";
-
-  try {
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    if (name) await updateProfile(cred.user, { displayName: name });
-
-    await ensureUserProfileAndRules(cred.user);
-
-    showNotice(authMsg, "Conta criada com sucesso ✅", "ok");
-    setAuthTab("login");
-    loginEmail.value = email;
-    loginPass.value = "";
-  } catch (err) {
-    showNotice(authMsg, `Erro ao criar conta: ${err.message}`, "err");
-  }
-});
-
-btnReset?.addEventListener("click", async () => {
-  hideNotice(authMsg);
-  const email = (loginEmail?.value || "").trim();
-  if (!email) return showNotice(authMsg, "Digite seu email no login para receber o reset.", "err");
-
-  try {
-    await sendPasswordResetEmail(auth, email);
-    showNotice(authMsg, "Link de redefinição enviado ✅", "ok");
-  } catch (err) {
-    showNotice(authMsg, `Erro ao enviar reset: ${err.message}`, "err");
-  }
-});
-
-// ------------------ Subscribe sessions ------------------
-async function subscribeSessions() {
-  if (unsubscribeSessions) unsubscribeSessions();
-
-  const qy = query(sessionsColRef(), orderBy("createdAt", "desc"));
-
-  unsubscribeSessions = onSnapshot(qy, (snap) => {
-    sessionsCache = snap.docs.map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        topic: data.topic,
-        studiedAtStr: data.studiedAtStr,
-        nextReviewAtStr: data.nextReviewAtStr,
-        nextReviewAt: parseDateBR(data.nextReviewAtStr),
-        acc: typeof data.acc === "number" ? data.acc : 0,
-        reviewed: !!data.reviewed
-      };
-    });
-
-    refreshUI();
-  });
-}
-
-// ------------------ Auth state ------------------
-onAuthStateChanged(auth, async (user) => {
-  currentUser = user;
-
-  if (!user) {
-    viewApp.hidden = true;
-    viewAuth.hidden = false;
-    btnLogout.hidden = true;
-
-    userName.textContent = "—";
+    userName.textContent = "Ana";
     todayEl.textContent = fmtDateBR(new Date());
 
+    // default date
+    if (studyDate && !studyDate.value) {
+      const d = new Date();
+      studyDate.value = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    }
+
+    const rules = await loadRules();
+    renderRules(rules);
+
+    // subscribe sessions
     if (unsubscribeSessions) unsubscribeSessions();
-    sessionsCache = [];
-    refreshUI();
-    return;
+    const qy = query(SESSIONS_COL, orderBy("createdAt", "desc"));
+
+    unsubscribeSessions = onSnapshot(qy, (snap) => {
+      sessionsCache = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          topic: data.topic,
+          studiedAtStr: data.studiedAtStr,
+          nextReviewAtStr: data.nextReviewAtStr,
+          nextReviewAt: parseDateBR(data.nextReviewAtStr),
+          acc: typeof data.acc === "number" ? data.acc : 0,
+          reviewed: !!data.reviewed
+        };
+      });
+      refreshUI();
+    });
+
+    viewEnter.hidden = true;
+    viewApp.hidden = false;
+  } catch (err) {
+    showNotice(enterMsg, `Erro ao iniciar: ${err.message}`, "err");
   }
+}
 
-  viewAuth.hidden = true;
-  viewApp.hidden = false;
-  btnLogout.hidden = false;
+btnEnter?.addEventListener("click", startApp);
 
-  await ensureUserProfileAndRules(user);
-
-  // nome
-  const profSnap = await getDoc(profileDocRef());
-  const prof = profSnap.exists() ? profSnap.data() : {};
-  userName.textContent = prof.name || user.displayName || user.email || "—";
-
-  // hoje
-  todayEl.textContent = fmtDateBR(new Date());
-
-  // default no input de data do estudo
-  if (studyDate && !studyDate.value) {
-    const d = new Date();
-    studyDate.value = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  }
-
-  // regras
-  const rules = await loadRules();
-  renderRules(rules);
-
-  // sessões
-  await subscribeSessions();
-});
+// ------------------ Modal help ------------------
+btnHelp?.addEventListener("click", () => dlgHelp?.showModal());
+btnCloseHelp?.addEventListener("click", () => dlgHelp?.close());

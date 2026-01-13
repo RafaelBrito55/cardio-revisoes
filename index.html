@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cardio Revisões • Planner de Estudos</title>
+  <link rel="icon" href="assets/heart.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/heart.svg" alt="" class="brand__icon" />
+      <div>
+        <div class="brand__title">Cardio Revisões</div>
+        <div class="brand__sub">Planner inteligente para residência de cardiologia</div>
+      </div>
+    </div>
+
+    <div class="topbar__actions">
+      <button id="btn-help" class="btn btn--ghost" type="button" title="Ajuda">
+        <span class="btn__icon">?</span>
+        <span class="hide-sm">Ajuda</span>
+      </button>
+      <button id="btn-logout" class="btn btn--soft" type="button" hidden>
+        <span class="btn__icon">⎋</span>
+        <span class="hide-sm">Sair</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- AUTH -->
+    <section id="view-auth" class="card" aria-label="Login e cadastro">
+      <div class="card__header">
+        <h1 class="h1">Entrar</h1>
+        <p class="muted">Guarde seus estudos e revisões com segurança (cada conta vê só os próprios dados).</p>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="Autenticação">
+        <button class="tab is-active" data-auth-tab="login" role="tab" aria-selected="true">Login</button>
+        <button class="tab" data-auth-tab="register" role="tab" aria-selected="false">Criar conta</button>
+      </div>
+
+      <div class="grid grid--2">
+        <form id="form-login" class="panel" autocomplete="on">
+          <div class="field">
+            <label for="login-email">Email</label>
+            <input id="login-email" type="email" placeholder="ex: ana@gmail.com" required />
+          </div>
+          <div class="field">
+            <label for="login-pass">Senha</label>
+            <input id="login-pass" type="password" placeholder="••••••••" required />
+          </div>
+          <button class="btn btn--primary" type="submit">Entrar</button>
+          <button id="btn-reset" class="btn btn--ghost" type="button">Esqueci minha senha</button>
+          <p class="hint">Dica: ative o provedor <b>Email/Password</b> no Firebase Auth.</p>
+        </form>
+
+        <form id="form-register" class="panel" autocomplete="on" hidden>
+          <div class="field">
+            <label for="reg-name">Nome</label>
+            <input id="reg-name" type="text" placeholder="ex: Ana" required />
+          </div>
+          <div class="field">
+            <label for="reg-email">Email</label>
+            <input id="reg-email" type="email" placeholder="ex: ana@gmail.com" required />
+          </div>
+          <div class="field">
+            <label for="reg-pass">Senha</label>
+            <input id="reg-pass" type="password" placeholder="mínimo 6 caracteres" minlength="6" required />
+          </div>
+          <button class="btn btn--primary" type="submit">Criar conta</button>
+          <p class="hint">A conta cria automaticamente seu conjunto inicial de regras de revisão.</p>
+        </form>
+      </div>
+
+      <div class="notice" id="auth-msg" hidden></div>
+    </section>
+
+    <!-- APP -->
+    <section id="view-app" hidden>
+      <div class="hero">
+        <div>
+          <h2 class="h2">Olá, <span id="user-name">—</span> 💗</h2>
+          <p class="muted">Registre seus estudos, calcule seu desempenho e deixe o sistema te dizer <b>quando revisar</b>.</p>
+        </div>
+        <div class="pill">
+          <div class="pill__k">Hoje</div>
+          <div class="pill__v" id="today">—</div>
+        </div>
+      </div>
+
+      <div class="grid grid--3">
+        <div class="kpi card card--tight">
+          <div class="kpi__label">Revisões vencidas</div>
+          <div class="kpi__value" id="kpi-overdue">0</div>
+          <div class="kpi__sub">precisam de atenção</div>
+        </div>
+        <div class="kpi card card--tight">
+          <div class="kpi__label">Revisões em 7 dias</div>
+          <div class="kpi__value" id="kpi-week">0</div>
+          <div class="kpi__sub">planejamento da semana</div>
+        </div>
+        <div class="kpi card card--tight">
+          <div class="kpi__label">Acerto médio</div>
+          <div class="kpi__value" id="kpi-avg">—</div>
+          <div class="kpi__sub">com base nas sessões</div>
+        </div>
+      </div>
+
+      <div class="grid grid--2">
+        <!-- Novo Estudo -->
+        <section class="card">
+          <div class="card__header">
+            <h3 class="h3">Novo estudo</h3>
+            <p class="muted">Registre um tema e o resultado das questões.</p>
+          </div>
+
+          <form id="form-session" class="panel">
+            <div class="grid grid--2">
+              <div class="field">
+                <label for="study-date">Data</label>
+                <input id="study-date" type="date" required />
+              </div>
+              <div class="field">
+                <label for="study-theme">Tema</label>
+                <input id="study-theme" type="text" placeholder="ex: ICC, IAM, ECG, valvopatias..." required />
+              </div>
+            </div>
+
+            <div class="grid grid--2">
+              <div class="field">
+                <label for="q-total">Questões feitas</label>
+                <input id="q-total" type="number" min="1" step="1" placeholder="ex: 40" required />
+              </div>
+              <div class="field">
+                <label for="q-right">Acertos</label>
+                <input id="q-right" type="number" min="0" step="1" placeholder="ex: 28" required />
+              </div>
+            </div>
+
+            <div class="preview" id="session-preview" hidden>
+              <div><span class="muted">% acerto</span> <b id="p-acc">—</b></div>
+              <div><span class="muted">Revisar em</span> <b id="p-days">—</b></div>
+              <div><span class="muted">Data revisão</span> <b id="p-next">—</b></div>
+            </div>
+
+            <button class="btn btn--primary" type="submit">Salvar estudo</button>
+            <div class="notice" id="session-msg" hidden></div>
+          </form>
+        </section>
+
+        <!-- Regras -->
+        <section class="card">
+          <div class="card__header">
+            <h3 class="h3">Regras de revisão (configurável)</h3>
+            <p class="muted">Você define as faixas de acerto e quantos dias depois revisar.</p>
+          </div>
+
+          <div class="panel">
+            <div class="rules-head">
+              <div class="muted">Faixa %</div>
+              <div class="muted">Dias</div>
+              <div></div>
+            </div>
+            <div id="rules-list" class="rules"></div>
+
+            <div class="rules-actions">
+              <button id="btn-add-rule" class="btn btn--soft" type="button">+ Adicionar regra</button>
+              <button id="btn-save-rules" class="btn btn--primary" type="button">Salvar regras</button>
+            </div>
+            <div class="notice" id="rules-msg" hidden></div>
+
+            <div class="hint">
+              Recomendações: mantenha as faixas sem sobreposição e cobrindo de 0 a 100.
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Revisões -->
+      <section class="card">
+        <div class="card__header card__header--row">
+          <div>
+            <h3 class="h3">Agenda de revisões</h3>
+            <p class="muted">Ordenada por data — clique para marcar como revisado.</p>
+          </div>
+          <div class="filters">
+            <select id="filter-status" class="select">
+              <option value="all">Todas</option>
+              <option value="overdue">Vencidas</option>
+              <option value="next7">Próximos 7 dias</option>
+              <option value="open">A revisar</option>
+              <option value="done">Revisadas</option>
+            </select>
+            <input id="filter-text" class="input" type="search" placeholder="Buscar tema..." />
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table" aria-label="Lista de revisões">
+            <thead>
+              <tr>
+                <th>Tema</th>
+                <th>Estudo</th>
+                <th>%</th>
+                <th>Revisão</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-sessions"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <div class="muted">Feito com 💗 para estudos de cardiologia • Dados salvos no Firebase (Auth + Firestore)</div>
+      </footer>
+    </section>
+  </main>
+
+  <!-- Modal Ajuda -->
+  <dialog id="dlg-help" class="dialog">
+    <div class="dialog__card">
+      <div class="dialog__top">
+        <div class="dialog__title">Como funciona</div>
+        <button class="btn btn--ghost" id="btn-close-help" type="button">✕</button>
+      </div>
+      <div class="dialog__body">
+        <ol class="list">
+          <li>Configure suas <b>regras</b> (faixa de % → dias até revisar).</li>
+          <li>Cadastre um <b>estudo</b> (tema, questões e acertos).</li>
+          <li>O app calcula a % e gera automaticamente a <b>próxima revisão</b>.</li>
+          <li>Na agenda, você marca como <b>revisado</b> quando concluir.</li>
+        </ol>
+        <div class="callout">
+          <b>Dica Cardio:</b> use temas curtos (ex: “ECG – bloqueios AV”) para revisões mais objetivas.
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <script type="module" src="firebase.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

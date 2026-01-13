@@ -28,67 +28,28 @@
         <span class="btn__icon">?</span>
         <span class="hide-sm">Ajuda</span>
       </button>
-      <button id="btn-logout" class="btn btn--soft" type="button" hidden>
-        <span class="btn__icon">⎋</span>
-        <span class="hide-sm">Sair</span>
-      </button>
     </div>
   </header>
 
   <main class="container">
-    <!-- AUTH -->
-    <section id="view-auth" class="card" aria-label="Login e cadastro">
+    <!-- ENTRAR -->
+    <section id="view-enter" class="card" aria-label="Entrar">
       <div class="card__header">
         <h1 class="h1">Entrar</h1>
-        <p class="muted">Guarde seus estudos e revisões com segurança (cada conta vê só os próprios dados).</p>
+        <p class="muted">Modo simples: sem login. Os dados ficam salvos no Firebase.</p>
       </div>
 
-      <div class="tabs" role="tablist" aria-label="Autenticação">
-        <button class="tab is-active" data-auth-tab="login" role="tab" aria-selected="true">Login</button>
-        <button class="tab" data-auth-tab="register" role="tab" aria-selected="false">Criar conta</button>
+      <div class="panel">
+        <button id="btn-enter" class="btn btn--primary" type="button">Entrar</button>
+        <div class="notice" id="enter-msg" hidden></div>
       </div>
-
-      <div class="grid grid--2">
-        <form id="form-login" class="panel" autocomplete="on">
-          <div class="field">
-            <label for="login-email">Email</label>
-            <input id="login-email" type="email" placeholder="ex: ana@gmail.com" required />
-          </div>
-          <div class="field">
-            <label for="login-pass">Senha</label>
-            <input id="login-pass" type="password" placeholder="••••••••" required />
-          </div>
-          <button class="btn btn--primary" type="submit">Entrar</button>
-          <button id="btn-reset" class="btn btn--ghost" type="button">Esqueci minha senha</button>
-          <p class="hint">Dica: ative o provedor <b>Email/Password</b> no Firebase Auth.</p>
-        </form>
-
-        <form id="form-register" class="panel" autocomplete="on" hidden>
-          <div class="field">
-            <label for="reg-name">Nome</label>
-            <input id="reg-name" type="text" placeholder="ex: Ana" required />
-          </div>
-          <div class="field">
-            <label for="reg-email">Email</label>
-            <input id="reg-email" type="email" placeholder="ex: ana@gmail.com" required />
-          </div>
-          <div class="field">
-            <label for="reg-pass">Senha</label>
-            <input id="reg-pass" type="password" placeholder="mínimo 6 caracteres" minlength="6" required />
-          </div>
-          <button class="btn btn--primary" type="submit">Criar conta</button>
-          <p class="hint">A conta cria automaticamente seu conjunto inicial de regras de revisão.</p>
-        </form>
-      </div>
-
-      <div class="notice" id="auth-msg" hidden></div>
     </section>
 
     <!-- APP -->
     <section id="view-app" hidden>
       <div class="hero">
         <div>
-          <h2 class="h2">Olá, <span id="user-name">—</span> 💗</h2>
+          <h2 class="h2">Olá, <span id="user-name">Ana</span> 💗</h2>
           <p class="muted">Registre seus estudos, calcule seu desempenho e deixe o sistema te dizer <b>quando revisar</b>.</p>
         </div>
         <div class="pill">
@@ -160,7 +121,7 @@
         <!-- Regras -->
         <section class="card">
           <div class="card__header">
-            <h3 class="h3">Regras de revisão (configurável)</h3>
+            <h3 class="h3">Regras de revisão</h3>
             <p class="muted">Você define as faixas de acerto e quantos dias depois revisar.</p>
           </div>
 
@@ -177,10 +138,6 @@
               <button id="btn-save-rules" class="btn btn--primary" type="button">Salvar regras</button>
             </div>
             <div class="notice" id="rules-msg" hidden></div>
-
-            <div class="hint">
-              Recomendações: mantenha as faixas sem sobreposição e cobrindo de 0 a 100.
-            </div>
           </div>
         </section>
       </div>
@@ -190,7 +147,7 @@
         <div class="card__header card__header--row">
           <div>
             <h3 class="h3">Agenda de revisões</h3>
-            <p class="muted">Ordenada por data — clique para marcar como revisado.</p>
+            <p class="muted">Ordenada por data — marque como revisado.</p>
           </div>
           <div class="filters">
             <select id="filter-status" class="select">
@@ -222,12 +179,11 @@
       </section>
 
       <footer class="footer">
-        <div class="muted">Feito com 💗 para estudos de cardiologia • Dados salvos no Firebase (Auth + Firestore)</div>
+        <div class="muted">Dados salvos no Firebase (Firestore) • Modo simples sem login</div>
       </footer>
     </section>
   </main>
 
-  <!-- Modal Ajuda -->
   <dialog id="dlg-help" class="dialog">
     <div class="dialog__card">
       <div class="dialog__top">
@@ -239,16 +195,12 @@
           <li>Configure suas <b>regras</b> (faixa de % → dias até revisar).</li>
           <li>Cadastre um <b>estudo</b> (tema, questões e acertos).</li>
           <li>O app calcula a % e gera automaticamente a <b>próxima revisão</b>.</li>
-          <li>Na agenda, você marca como <b>revisado</b> quando concluir.</li>
+          <li>Na agenda, marque como <b>revisado</b> quando concluir.</li>
         </ol>
-        <div class="callout">
-          <b>Dica Cardio:</b> use temas curtos (ex: “ECG – bloqueios AV”) para revisões mais objetivas.
-        </div>
       </div>
     </div>
   </dialog>
 
-  <!-- IMPORTANTE: só o app.js (ele importa o firebase.js) -->
   <script type="module" src="./app.js"></script>
 </body>
 </html>
